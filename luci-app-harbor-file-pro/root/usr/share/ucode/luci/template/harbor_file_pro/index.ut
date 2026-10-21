@@ -1,5 +1,5 @@
 {%
-const harbor_asset_version = '20260922.12';
+const harbor_asset_version = '20260922.13';
 function harbor_asset_url(path) {
     return resource + '/harbor_file_pro/' + path + '?v=' + harbor_asset_version;
 }
