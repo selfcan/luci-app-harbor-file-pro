@@ -8,7 +8,7 @@ PKG_PO_VERSION:=$(PKG_VERSION)
 LUCI_MINIFY_JS:=0
 LUCI_MINIFY_CSS:=0
 
-PKG_LICENSE:=Apache-2.0
+PKG_LICENSE:=MIT
 PKG_MAINTAINER:=whzhni1
 
 LUCI_TITLE:=LuCI support for HarborFile Pro (ucode backend)
