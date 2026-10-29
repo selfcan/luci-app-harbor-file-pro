@@ -5519,8 +5519,61 @@
         body.setAttribute('aria-label', HF.labels.target_path);
         body.appendChild(crumbs);
         body.appendChild(input);
-        var editing = false, blur_timer;
+        var editing = false, blur_timer, drag = null, suppress_click = false;
+        crumbs.addEventListener('wheel', function(event) {
+            if (editing || event.ctrlKey || crumbs.scrollWidth <= crumbs.clientWidth) return;
+            var delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+            if (event.deltaMode === 1) delta *= 16;
+            else if (event.deltaMode === 2) delta *= crumbs.clientWidth;
+            var previous = crumbs.scrollLeft;
+            crumbs.scrollLeft += delta;
+            if (crumbs.scrollLeft !== previous) event.preventDefault();
+        }, { passive: false });
+        function end_drag(event) {
+            if (!drag || event && event.pointerId != null && event.pointerId !== drag.id) return;
+            var previous = drag;
+            drag = null;
+            if (previous.active) suppress_click = true;
+            crumbs.style.cursor = previous.cursor;
+            crumbs.style.userSelect = previous.select;
+            if (crumbs.hasPointerCapture(previous.id)) crumbs.releasePointerCapture(previous.id);
+            document.removeEventListener('pointermove', move_drag);
+            document.removeEventListener('pointerup', end_drag);
+            document.removeEventListener('pointercancel', end_drag);
+            window.removeEventListener('blur', end_drag);
+        }
+        function move_drag(event) {
+            if (!drag || event.pointerId !== drag.id) return;
+            if (!crumbs.isConnected || !(event.buttons & 1)) { end_drag(event); return; }
+            var delta = event.clientX - drag.x;
+            if (!drag.active) {
+                if (Math.abs(delta) < 6) return;
+                drag.active = true;
+                crumbs.setPointerCapture(drag.id);
+                crumbs.style.cursor = 'grabbing';
+            }
+            event.preventDefault();
+            crumbs.scrollLeft = drag.left - delta;
+        }
+        crumbs.addEventListener('pointerdown', function(event) {
+            suppress_click = false;
+            if (event.pointerType !== 'mouse' || event.button !== 0 || editing || crumbs.scrollWidth <= crumbs.clientWidth) return;
+            end_drag();
+            drag = { id: event.pointerId, x: event.clientX, left: crumbs.scrollLeft, active: false, cursor: crumbs.style.cursor, select: crumbs.style.userSelect };
+            crumbs.style.userSelect = 'none';
+            document.addEventListener('pointermove', move_drag, { passive: false });
+            document.addEventListener('pointerup', end_drag);
+            document.addEventListener('pointercancel', end_drag);
+            window.addEventListener('blur', end_drag);
+        });
+        crumbs.addEventListener('click', function(event) {
+            if (!suppress_click || !event.detail) return;
+            suppress_click = false;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+        }, true);
         function state(value) {
+            end_drag();
             editing = value;
             if (options.on_edit) options.on_edit(value);
             crumbs.style.display = value ? 'none' : 'inline-flex';
@@ -5542,6 +5595,7 @@
             input.select();
         }
         function refresh() {
+            end_drag();
             HF.clear_node(crumbs);
             options.segments().forEach(function(crumb, index) {
                 if (index) crumbs.appendChild(HF.Util.createElement('span', 'fm-crumb-separator', '›'));
